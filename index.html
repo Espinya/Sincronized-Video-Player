@@ -1,0 +1,115 @@
+<html>
+<head>
+
+<style>
+  .precontainer {
+    width: 50%;
+    height: 10%;
+    margin: 0 auto;
+    display: flex;
+  }
+  .container {
+    width: 80%;
+    height: 80%;
+    margin:  auto;
+    display: flex;
+  }
+  .plyr {
+    border-radius: 15px;
+    margin-bottom: 15px;
+}    
+</style>
+<link rel="stylesheet" href="https://cdn.plyr.io/3.6.4/plyr.css" />
+<script src="https://cdn.plyr.io/3.5.6/plyr.js"></script>
+<script src="http://ajax.googleapis.com/ajax/libs/jquery/1.7.1/jquery.min.js" type="text/javascript"></script>
+</head>
+<body>
+<div class="precontainer"></div>
+<div class="container">
+    <video
+        id="myVideo"
+        class="js-player"
+        preload="auto"
+        muted=true
+        poster="http://82.199.40.189:8000/waiting.png"
+        data-setup="{}"
+        crossorigin = anonymous
+    >
+    <source src="" type="video/mp4">
+    </video>
+</div>
+<script>
+  var serverTime = 0;
+  var userPlay = 1;
+  var serverPlay = 0;
+  var fileName = "";
+  document.addEventListener('DOMContentLoaded', () => {
+      console.log("run");
+      const controls = [
+          'play', // Play/pause playback
+          'current-time', // The current time of playback
+          'duration', // The full duration of the media
+          'mute', // Toggle mute
+          'volume', // Volume control
+          'fullscreen' // Toggle fullscreen  
+      ];
+      const player_options = {
+        autoplay: false,
+        clickToPlay: true,
+        showPosterOnEnd: true,
+        controls: controls,
+        captions: {
+          active: true,
+          language: 'auto',
+          update:true
+        },
+	    };
+      var videoList = Plyr.setup('.js-player', player_options);
+      var myVideo = videoList[0];
+      myVideo.muted = true;
+      myVideo.on('play', function(event) {
+        userPlay = 1;
+        if (serverPlay == 0) myVideo.pause();
+        myVideo.currentTime = serverTime; 
+        console.log("play");
+	    });
+      myVideo.on('pause', function(event) {
+        userPlay = 0;
+        console.log("pause");
+	    });
+      setInterval(function(){ 
+        fetch("http://82.199.40.189:8000/status").then(function(response) {
+          let text;
+          response.text().then(function(text) {
+          let data = text.split(';');
+          if (data[2] != fileName){
+            document.getElementById("myVideo").src = "video/" + data[2];
+            document.getElementById("myVideo").load();
+            fileName = data[2];
+            myVideo.currentTime = 0;
+          }    
+          switch(data[0]){
+            case 'play':
+              serverTime = parseFloat(data[1]);
+              serverPlay = 1;
+              if ((myVideo.currentTime - serverTime) > 1 || (serverTime - myVideo.currentTime) > 1){
+                if ((myVideo.currentTime - serverTime) <= 1) console.log("forced time: Client Win")
+                if ((serverTime - myVideo.currentTime) <= 1) console.log("forced time: Server Win")
+                if (userPlay == 1 && serverPlay == 1) myVideo.currentTime = serverTime;
+              }
+              if (userPlay) myVideo.play();
+              break;
+            case 'stop':
+                serverPlay = 0;
+                myVideo.pause();
+              break;
+            case 'off':
+              break;
+          } 
+          });
+            });
+        }, 500);
+    });
+  </script>
+  </body>
+  </html>
